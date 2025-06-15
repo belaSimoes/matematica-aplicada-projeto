@@ -1,0 +1,47 @@
+# Impacto Calórico de Comidas em Geral
+
+Este projeto é uma aplicação web interativa que permite aos usuários calcular suas necessidades calóricas diárias e monitorar a ingestão de alimentos, utilizando dados da API USDA FoodData Central. A aplicação fornece feedback sobre a alimentação, incluindo gráficos de nutrientes.
+
+## Funcionalidades
+
+- **Cálculo de Necessidades Calóricas**: O usuário insere seu peso, altura, idade e sexo para calcular a meta calórica diária.
+- **Registro de Refeições**: O usuário pode informar o que comeu em diversas refeições (café da manhã, almoço, café da tarde e janta).
+- **Visualização de Nutrientes**: O aplicativo exibe a quantidade de calorias, proteínas, carboidratos e ferro consumidos.
+- **Feedback**: Informa se o usuário excedeu ou não sua meta calórica diária, além de gráficos que mostram a distribuição nutricional.
+
+## Tecnologias Utilizadas
+
+- **Backend**: Python
+- **Frontend**: Streamlit
+- **APIs**: USDA FoodData Central
+- **Bibliotecas**:
+  - `requests`: Para chamadas HTTP à API.
+  - `pandas`: Para manipulação de dados.
+  - `matplotlib`: Para visualização de gráficos.
+  - `unidecode`: Para normalização de strings.
+
+## PARTE IMPORTANTE !!!
+## Pré-requisitos
+
+Antes de executar o projeto, você precisará ter o Python 3 instalado em sua máquina. Além disso, instale as seguintes bibliotecas:
+
+    ```bash
+    pip install streamlit requests pandas matplotlib unidecode
+    ```
+
+## Como Executar
+
+1. **Clone o repositório** ou faça o download do arquivo `index.py`.
+2. **Execute a aplicação** usando o comando:
+   ```bash
+   streamlit run index.py
+   ```
+3. **Abra o navegador** na URL que o Streamlit fornecer (geralmente `http://localhost:8501`).
+
+## Colaboradores
+
+Isabela Simões, João Pegarare, Victor Solique
+
+---
+
+Se tiver dúvidas ou precisar de mais informações, entre em contato!

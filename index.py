@@ -1,63 +1,104 @@
 import streamlit as st
+import requests
 import pandas as pd
 import matplotlib.pyplot as plt
-import unidecode
+from unidecode import unidecode
 
-# Carregar base TACO
-@st.cache_data
-def carregar_taco():
-    df = pd.read_csv("taco.csv", encoding="ISO-8859-1", sep=";")
-    df.columns = df.columns.str.strip()
-    df["Alimento"] = df["Descrição"].apply(lambda x: unidecode(str(x)).lower())
-    return df
+# Função para buscar dados da API USDA FoodData Central
+def buscar_alimento(nome_alimento):
+    api_key = 'dL4GmUlT2nUwKdUo46D8r7U7ItI3JLI9gxLecS1Y'
+    url = f"https://api.nal.usda.gov/fdc/v1/foods/search?query={unidecode(nome_alimento)}&api_key={api_key}"
+    
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        if data['foods']:
+            return data['foods'][0]  # Retorna o primeiro alimento encontrado
+    return None
 
-def buscar_alimento(nome, df):
-    nome_proc = unidecode(nome.strip().lower())
-    resultados = df[df["Alimento"].str.contains(nome_proc)]
-    return resultados
+# Função para calcular necessidades calóricas diárias
+def calcular_calorias_diarias(peso, altura, idade, sexo):
+    if sexo == 'M':
+        calorias = (10 * peso) + (6.25 * altura) - (5 * idade) + 5
+    else:
+        calorias = (10 * peso) + (6.25 * altura) - (5 * idade) - 161
+    return calorias
 
-def calcular_valores(nutrientes_por_100g, quantidade):
-    fator = quantidade / 100
-    return round(nutrientes_por_100g * fator, 2)
+# Função para exibir gráfico
+def plotar_nutrientes(dados, meta_calorias):
+    plt.figure(figsize=(10, 5))
+    plt.bar(dados['nutriente'], dados['valor'], color='skyblue')
+    plt.axhline(y=meta_calorias, color='r', linestyle='--', label='Meta Calórica')
+    plt.title('Distribuição Nutricional')
+    plt.xlabel('Nutrientes')
+    plt.ylabel('Quantidade')
+    plt.xticks(rotation=45)
+    plt.legend()
+    st.pyplot(plt)
 
-def plotar_grafico(nutrientes):
-    labels = ['Proteína', 'Lipídeos', 'Carboidrato']
-    valores = [nutrientes[k] for k in labels]
+# Título da aplicação
+st.title("Impacto Calórico de Comidas em Geral")
+st.write("Preencha as informações abaixo para calcular suas necessidades nutricionais.")
 
-    fig, ax = plt.subplots()
-    ax.pie(valores, labels=labels, autopct='%1.1f%%', startangle=140)
-    ax.axis('equal')
-    st.pyplot(fig)
+# Dados do usuário
+peso = st.number_input("Digite seu peso (kg):", min_value=1.0)
+altura = st.number_input("Digite sua altura (cm):", min_value=1)
+idade = st.number_input("Digite sua idade (anos):", min_value=1)
+sexo = st.selectbox("Selecione seu sexo:", options=["M", "F"])
 
-# Interface com Streamlit
-def main():
-    st.title("Impacto Calórico de Comidas com TACO")
+# Calcular calorias diárias
+if st.button("Calcular Calorias Diárias"):
+    calorias_diarias = calcular_calorias_diarias(peso, altura, idade, sexo)
+    st.session_state.calorias_diarias = calorias_diarias
+    st.session_state.refeicoes = {}
+    st.write(f"Sua meta calórica diária é: **{calorias_diarias:.2f} kcal**")
 
-    df_taco = carregar_taco()
+# Perguntas sobre refeições
+if 'refeicoes' not in st.session_state:
+    st.session_state.refeicoes = {}
 
-    nome_alimento = st.text_input("Digite o nome do alimento:")
-    quantidade = st.number_input("Quantidade em gramas:", min_value=1, max_value=1000, value=100)
-
-    if nome_alimento:
-        resultados = buscar_alimento(nome_alimento, df_taco)
-
-        if resultados.empty:
-            st.warning("Nenhum alimento encontrado.")
-        else:
-            alimento = resultados.iloc[0]  # pega o primeiro resultado
-            st.subheader(f"Alimento encontrado: {alimento['Descrição']}")
+for refeicao in ["Café da manhã", "Almoço", "Café da tarde", "Janta"]:
+    comida = st.text_input(f"O que você comeu no {refeicao.lower()}:", key=refeicao)
+    if comida:
+        alimento_info = buscar_alimento(comida)
+        if alimento_info:
             nutrientes = {
-                "Energia (kcal)": calcular_valores(alimento["Energia (kcal)"], quantidade),
-                "Proteína": calcular_valores(alimento["Proteína (g)"], quantidade),
-                "Lipídeos": calcular_valores(alimento["Lipídeos (g)"], quantidade),
-                "Carboidrato": calcular_valores(alimento["Carboidrato (g)"], quantidade)
+                'calorias': 0,
+                'proteina': 0,
+                'carboidratos': 0,
+                'ferro': 0
             }
+            for nutrient in alimento_info['foodNutrients']:
+                if nutrient['nutrientName'] == 'Energy':
+                    nutrientes['calorias'] += nutrient['value']
+                elif nutrient['nutrientName'] == 'Protein':
+                    nutrientes['proteina'] += nutrient['value']
+                elif nutrient['nutrientName'] == 'Carbohydrate, by difference':
+                    nutrientes['carboidratos'] += nutrient['value']
+                elif nutrient['nutrientName'] == 'Iron, Fe':
+                    nutrientes['ferro'] += nutrient['value']
+            
+            st.session_state.refeicoes[refeicao] = nutrientes
+        else:
+            st.error(f"Alimento '{comida}' não encontrado.")
 
-            st.write(f"**Valores para {quantidade}g:**")
-            st.dataframe(pd.DataFrame(nutrientes.items(), columns=["Nutriente", "Quantidade"]))
+# Calcular totais
+if st.session_state.refeicoes:
+    total_nutrientes = {
+        'calorias': sum(refeicao['calorias'] for refeicao in st.session_state.refeicoes.values()),
+        'proteina': sum(refeicao['proteina'] for refeicao in st.session_state.refeicoes.values()),
+        'carboidratos': sum(refeicao['carboidratos'] for refeicao in st.session_state.refeicoes.values()),
+        'ferro': sum(refeicao['ferro'] for refeicao in st.session_state.refeicoes.values())
+    }
 
-            st.subheader("Proporção de Macronutrientes")
-            plotar_grafico(nutrientes)
+    st.write("Resumo das refeições:")
+    st.write(total_nutrientes)
 
-if __name__ == '__main__':
-    main()
+    # Plotar gráfico
+    plotar_nutrientes(pd.DataFrame(total_nutrientes.items(), columns=['nutriente', 'valor']), st.session_state.calorias_diarias)
+
+    # Verificar se passou da meta
+    if total_nutrientes['calorias'] > st.session_state.calorias_diarias:
+        st.warning("Você excedeu sua meta calórica diária!")
+    else:
+        st.success("Você está dentro da sua meta calórica diária!")
